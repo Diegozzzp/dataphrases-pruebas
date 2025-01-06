@@ -29,6 +29,7 @@ const DataTable = ({ data, asinColumns, favorites, onToggleFavorite, onAsinChang
       </table>
       <h2>ASINs</h2>
       <select onChange={handleAsinSelect}>
+        <option value="">Seleccione un ASIN</option>
         {asinColumns.map((asin, index) => (
           <option key={index} value={asin}>{asin}</option>
         ))}

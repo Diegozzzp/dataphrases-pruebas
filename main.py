@@ -95,7 +95,7 @@ async def get_data():
         # Filtrar las columnas necesarias
         required_columns = ['Keyword Phrase', 'Keyword Sales', 'CPR']
         if global_data['current_asin_column']:
-            asin_column = global_data['current_asin_column']
+            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
             # Verificar si la columna del ASIN existe
             if asin_column in global_data['df'].columns:
                 required_columns.append(asin_column)
