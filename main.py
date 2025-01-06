@@ -73,6 +73,9 @@ async def upload_file(file: UploadFile):
                 if columna in df.columns:
                     global_data['df'][columna] = df[columna]
 
+        # Eliminar columnas duplicadas
+        global_data['df'] = global_data['df'].loc[:, ~global_data['df'].columns.duplicated()]
+
         # Actualizar columnas ASIN únicas
         asins_unicos = set()
         for col in global_data['df'].columns:
@@ -85,7 +88,8 @@ async def upload_file(file: UploadFile):
         return {"message": "Archivo cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cargar el archivo: {e}")
-
+    
+    
 @app.get("/data/")
 async def get_data():
     if global_data['df'] is None:

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import FileUpload from './components/FileUpload';
 import DataTable from './components/DataTable';
+import { Container, Typography } from '@mui/material';
 
 function App() {
   const [data, setData] = useState([]);
@@ -59,8 +60,10 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <h1>Generador de Reportes SEO y Publicidad</h1>
+    <Container>
+      <Typography variant="h3" gutterBottom>
+        Generador de Reportes SEO y Publicidad
+      </Typography>
       <FileUpload onFileUpload={handleFileUpload} />
       <DataTable
         data={data}
@@ -69,7 +72,7 @@ function App() {
         onToggleFavorite={toggleFavorite}
         onAsinChange={handleAsinChange}
       />
-    </div>
+    </Container>
   );
 }
 
