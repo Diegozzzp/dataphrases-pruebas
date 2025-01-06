@@ -48,7 +48,10 @@ function App() {
 
   const handleAsinChange = async (asin) => {
     try {
-      await axios.post('http://localhost:8000/set_asin/', { asin });
+      const formData = new FormData();
+      formData.append("asin", asin);
+
+      await axios.post('http://localhost:8000/set_asin/', formData);
       setCurrentAsin(asin);
     } catch (error) {
       console.error("Error al establecer el ASIN:", error);

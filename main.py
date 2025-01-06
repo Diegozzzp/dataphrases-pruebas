@@ -29,7 +29,6 @@ global_data = {
 @app.post("/upload/")
 async def upload_file(file: UploadFile):
     try:
-        # Leer el archivo Excel
         contents = await file.read()
         df = pd.read_excel(BytesIO(contents), dtype=str)
 
@@ -90,14 +89,26 @@ async def get_data():
     if global_data['df'] is None:
         raise HTTPException(status_code=404, detail="No hay datos cargados.")
     
-    # Filtrar las columnas necesarias
-    if global_data['current_asin_column']:
-        required_columns = ['Keyword Phrase', f"Search Volume ({datetime.now().strftime('%Y-%m-%d')})", global_data['current_asin_column'], 'Keyword Sales', 'CPR']
-    else:
-        required_columns = ['Keyword Phrase', f"Search Volume ({datetime.now().strftime('%Y-%m-%d')})", 'Keyword Sales', 'CPR']
-    
-    filtered_df = global_data['df'][required_columns]
-    return filtered_df.to_dict(orient='records')
+    try:
+        # Filtrar las columnas necesarias
+        required_columns = ['Keyword Phrase', 'Keyword Sales', 'CPR']
+        if global_data['current_asin_column']:
+            asin_column = global_data['current_asin_column']
+            # Verificar si la columna del ASIN existe
+            if asin_column in global_data['df'].columns:
+                required_columns.append(asin_column)
+            else:
+                raise HTTPException(status_code=400, detail=f"Columna {asin_column} no encontrada en los datos.")
+
+        # Agregar la columna de Search Volume más reciente
+        search_volume_columns = [col for col in global_data['df'].columns if col.startswith('Search Volume')]
+        if search_volume_columns:
+            required_columns.append(sorted(search_volume_columns)[-1])
+
+        filtered_df = global_data['df'][required_columns]
+        return filtered_df.to_dict(orient='records')
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Error al filtrar las columnas: {e}")
 
 @app.post("/favoritos/")
 async def manage_favoritos(asin: str):
