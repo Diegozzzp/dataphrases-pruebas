@@ -29,9 +29,12 @@ function App() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (filters = {}) => {
+    const { minValue = 1, maxValue = 1000, orderAsin = false, orderSearchVolume = false } = filters;
     try {
-      const response = await axios.get('http://localhost:8000/data/');
+      const response = await axios.get('http://localhost:8000/data/', {
+        params: { minValue, maxValue, orderAsin, orderSearchVolume }
+      });
       setData(response.data);
     } catch (error) {
       console.error("Error al obtener los datos:", error);
@@ -71,6 +74,7 @@ function App() {
         favorites={favorites}
         onToggleFavorite={toggleFavorite}
         onAsinChange={handleAsinChange}
+        onFetchData={fetchData}
       />
     </Container>
   );

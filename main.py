@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, HTTPException, Form
+from fastapi import FastAPI, UploadFile, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from io import BytesIO
@@ -89,9 +89,14 @@ async def upload_file(file: UploadFile):
         return {"message": "Archivo cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cargar el archivo: {e}")
-    
+
 @app.get("/data/")
-async def get_data():
+async def get_data(
+    min_value: int = Query(1, alias="minValue"),
+    max_value: int = Query(1000, alias="maxValue"),
+    order_asin: bool = Query(False, alias="orderAsin"),
+    order_search_volume: bool = Query(False, alias="orderSearchVolume")
+):
     if global_data['df'] is None:
         raise HTTPException(status_code=404, detail="No hay datos cargados.")
     
@@ -112,6 +117,22 @@ async def get_data():
             required_columns.append(sorted(search_volume_columns)[-1])
 
         filtered_df = global_data['df'][required_columns]
+
+        # Aplicar el filtro de rango a la columna ASIN
+        if global_data['current_asin_column']:
+            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
+            filtered_df = filtered_df[(filtered_df[asin_column] >= min_value) & (filtered_df[asin_column] <= max_value)]
+
+        # Ordenar por la columna ASIN si se solicita
+        if order_asin and global_data['current_asin_column']:
+            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
+            filtered_df = filtered_df.sort_values(by=asin_column, ascending=False)
+
+        # Ordenar por Search Volume si se solicita
+        if order_search_volume and search_volume_columns:
+            search_volume_column = sorted(search_volume_columns)[-1]
+            filtered_df = filtered_df.sort_values(by=search_volume_column, ascending=False)
+
         return filtered_df.to_dict(orient='records')
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Error al filtrar las columnas: {e}")
@@ -127,7 +148,6 @@ async def manage_favoritos(asin: str):
 @app.post("/set_asin/")
 async def set_asin(asin: str = Form(...)):
     global_data['current_asin_column'] = asin
-    print("ASIN actual:", global_data['current_asin_column'])
     return {"current_asin_column": global_data['current_asin_column']}
 
 if __name__ == "__main__":
