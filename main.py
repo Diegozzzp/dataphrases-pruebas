@@ -80,6 +80,8 @@ async def upload_file(file: UploadFile):
                 asins_unicos.add(col.split(' (')[0])
         global_data['asin_columns'] = sorted(list(asins_unicos))
 
+        print("Columnas del DataFrame después de cargar el archivo:", global_data['df'].columns)
+
         return {"message": "Archivo cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cargar el archivo: {e}")
@@ -105,6 +107,8 @@ async def get_data():
         if search_volume_columns:
             required_columns.append(sorted(search_volume_columns)[-1])
 
+        print("Columnas requeridas:", required_columns)
+
         filtered_df = global_data['df'][required_columns]
         return filtered_df.to_dict(orient='records')
     except KeyError as e:
@@ -121,6 +125,7 @@ async def manage_favoritos(asin: str):
 @app.post("/set_asin/")
 async def set_asin(asin: str = Form(...)):
     global_data['current_asin_column'] = asin
+    print("ASIN actual:", global_data['current_asin_column'])
     return {"current_asin_column": global_data['current_asin_column']}
 
 if __name__ == "__main__":
