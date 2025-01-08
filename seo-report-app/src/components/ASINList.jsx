@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, Typography, Grid, Button } from '@mui/material';
 import './ASINList.css';  // Asegúrate de agregar estilos aquí
@@ -30,6 +31,10 @@ const ASINList = ({ asinColumns }) => {
       </Grid>
     </div>
   );
+};
+
+ASINList.propTypes = {
+  asinColumns: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
 export default ASINList;

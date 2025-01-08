@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-const FileUpload = ({ onFileUpload }) => {
+const FileUpload = ({ onFileUpload, label }) => {
   const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
@@ -12,7 +12,8 @@ const FileUpload = ({ onFileUpload }) => {
 
   return (
     <div>
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} />
+      <label htmlFor="file-upload">{label}</label>
+      <input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} />
     </div>
   );
 };

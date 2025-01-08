@@ -1,99 +1,65 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import axios from "axios";
-import { Container, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import axios from 'axios';
+import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Snackbar } from '@mui/material';
 
 const ASINDetail = () => {
   const { asin } = useParams();
   const [data, setData] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
-  const [selectedKeyword, setSelectedKeyword] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/data/`, {
+        const response = await axios.get('http://localhost:8000/data/', {
           params: { asin }
         });
         setData(response.data);
       } catch (error) {
-        console.error("Error fetching data", error);
+        setError(`Error al obtener los datos: ${error.response?.data?.detail || error.message}`);
+        console.error("Error al obtener los datos:", error);
       }
     };
 
     fetchData();
   }, [asin]);
 
-  const handleKeywordClick = async (keyword) => {
-    try {
-      const response = await axios.get(`http://localhost:8000/campaigns/`, {
-        params: { keyword_phrase: keyword }
-      });
-      setCampaigns(response.data);
-      setSelectedKeyword(keyword);
-    } catch (error) {
-      console.error("Error fetching campaigns", error);
-    }
-  };
+  const handleCloseSnackbar = () => setError("");
 
   return (
     <Container>
       <Typography variant="h4" gutterBottom>
         Detalles del ASIN: {asin}
       </Typography>
-      <Paper>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Keyword Phrase</TableCell>
-              <TableCell>Search Volume</TableCell>
-              <TableCell>{asin}</TableCell>
-              <TableCell>Competing Products</TableCell>
-              <TableCell>Keyword Sales</TableCell>
+      <Table>
+        <TableHead>
+          <TableRow>
+            {/* Añade aquí las columnas que necesitas mostrar */}
+            <TableCell>Keyword Phrase</TableCell>
+            <TableCell>Search Volume</TableCell>
+            <TableCell>Competing Products</TableCell>
+            <TableCell>Keyword Sales</TableCell>
+            <TableCell>CPR</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {data.map((row, index) => (
+            <TableRow key={index}>
+              <TableCell>{row['Keyword Phrase']}</TableCell>
+              <TableCell>{row['Search Volume']}</TableCell>
+              <TableCell>{row['Competing Products']}</TableCell>
+              <TableCell>{row['Keyword Sales']}</TableCell>
+              <TableCell>{row['CPR']}</TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.map((row, index) => (
-              <TableRow key={index}>
-                <TableCell onClick={() => handleKeywordClick(row['Keyword Phrase'])} style={{ cursor: 'pointer' }}>
-                  {row['Keyword Phrase']}
-                </TableCell>
-                <TableCell>{row['Search Volume']}</TableCell>
-                <TableCell>{row[asin]}</TableCell>
-                <TableCell>{row['Competing Products']}</TableCell>
-                <TableCell>{row['Keyword Sales']}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
-      {selectedKeyword && (
-        <div>
-          <Typography variant="h5" gutterBottom style={{ marginTop: '20px' }}>
-            Campañas Publicitarias para "{selectedKeyword}"
-          </Typography>
-          <Paper>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {campaigns.length > 0 && Object.keys(campaigns[0]).map((key) => (
-                    <TableCell key={key}>{key}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {campaigns.map((campaign, index) => (
-                  <TableRow key={index}>
-                    {Object.values(campaign).map((value, idx) => (
-                      <TableCell key={idx}>{value}</TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </div>
-      )}
+          ))}
+        </TableBody>
+      </Table>
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        message={error}
+      />
     </Container>
   );
 };
