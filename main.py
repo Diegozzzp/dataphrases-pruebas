@@ -60,9 +60,10 @@ def process_dataframe(contents: bytes):
 async def upload_file(file: UploadFile, file_type: str = Form(...)):
     try:
         contents = await file.read()
-        df, fecha_carga, columnas_asin = await asyncio.to_thread(process_dataframe, contents)
+        df = pd.read_excel(BytesIO(contents), dtype=str)
 
         if file_type == "data":
+            df, fecha_carga, columnas_asin = await asyncio.to_thread(process_dataframe, contents)
             # Actualizar el DataFrame principal
             if global_data['df'] is None:
                 global_data['df'] = df
@@ -90,6 +91,8 @@ async def upload_file(file: UploadFile, file_type: str = Form(...)):
 
             return {"message": "Archivo de datos cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
         elif file_type == "campaigns":
+            if 'Customer Search Term' not in df.columns:
+                raise HTTPException(status_code=400, detail="El archivo de campañas no contiene la columna 'Customer Search Term'.")
             global_data['campaigns_df'] = df
             return {"message": "Archivo de campañas cargado y procesado exitosamente."}
         else:
@@ -99,6 +102,44 @@ async def upload_file(file: UploadFile, file_type: str = Form(...)):
         print(f"Error al cargar el archivo: {e}")
         raise HTTPException(status_code=500, detail=f"Error al cargar el archivo: {e}")
 
+@app.get("/data/")
+async def get_data(asin: str = None, minValue: int = None, maxValue: int = None, orderAsin: str = "", orderSearchVolume: str = ""):
+    if global_data['df'] is None:
+        raise HTTPException(status_code=404, detail="No hay datos cargados.")
+
+    try:
+        df = global_data['df']
+
+        if asin:
+            asin_column = [col for col in df.columns if col.startswith(asin)]
+            if asin_column:
+                asin_column = asin_column[0]
+                volume_columns = [col for col in df.columns if 'Search Volume' in col]
+                if volume_columns:
+                    search_volume_column = volume_columns[0]
+                else:
+                    search_volume_column = 'Search Volume'
+                
+                df = df[['Keyword Phrase', search_volume_column, asin_column, 'Competing Products', 'Keyword Sales']]
+                # Filtrar filas donde la columna del ASIN no tenga datos relevantes
+                df = df[(df[asin_column] != 0) & (df[asin_column] != -1)]
+
+        if minValue is not None and maxValue is not None:
+            df = df[(df['Competing Products'] >= minValue) & (df['Competing Products'] <= maxValue)]
+
+        if orderAsin:
+            df = df.sort_values(by=[orderAsin], ascending=(orderAsin == 'asc'))
+
+        if orderSearchVolume:
+            volume_columns = [col for col in df.columns if 'Search Volume' in col]
+            if volume_columns:
+                df = df.sort_values(by=volume_columns, ascending=(orderSearchVolume == 'asc'))
+
+        return df.fillna('').to_dict(orient='records')
+    except Exception as e:
+        print(f"Error al obtener los datos: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener los datos: {e}")
+
 @app.get("/campaigns/")
 async def get_campaigns(keyword_phrase: str):
     if global_data['campaigns_df'] is None:
@@ -106,56 +147,12 @@ async def get_campaigns(keyword_phrase: str):
 
     try:
         campaigns_filtered = global_data['campaigns_df'][global_data['campaigns_df']['Customer Search Term'].str.lower() == keyword_phrase.lower()]
+        # Reemplazar valores NaN con un valor predeterminado, por ejemplo, una cadena vacía
+        campaigns_filtered = campaigns_filtered.fillna('')
         return campaigns_filtered.to_dict(orient='records')
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Error al filtrar las campañas: {e}")
-    
-@app.get("/data/")
-async def get_data(
-    min_value: int = Query(1, alias="minValue"),
-    max_value: int = Query(1000, alias="maxValue"),
-    order_asin: str = Query("", alias="orderAsin"),
-    order_search_volume: str = Query("", alias="orderSearchVolume")
-):
-    if global_data['df'] is None:
-        raise HTTPException(status_code=404, detail="No hay datos cargados.")
-    
-    try:
-        # Filtrar las columnas necesarias
-        required_columns = ['Keyword Phrase', 'Keyword Sales', 'CPR']
-        if global_data['current_asin_column']:
-            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
-            # Verificar si la columna del ASIN existe
-            if asin_column in global_data['df'].columns:
-                required_columns.append(asin_column)
-            else:
-                raise HTTPException(status_code=400, detail=f"Columna {asin_column} no encontrada en los datos.")
 
-        # Agregar la columna de Search Volume más reciente
-        search_volume_columns = [col for col in global_data['df'].columns if col.startswith('Search Volume')]
-        if search_volume_columns:
-            required_columns.append(sorted(search_volume_columns)[-1])
-
-        filtered_df = global_data['df'][required_columns]
-
-        # Aplicar el filtro de rango a la columna ASIN
-        if global_data['current_asin_column']:
-            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
-            filtered_df = filtered_df[(filtered_df[asin_column] >= min_value) & (filtered_df[asin_column] <= max_value)]
-
-        # Ordenar por la columna ASIN si se solicita
-        if order_asin:
-            asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
-            filtered_df = filtered_df.sort_values(by=asin_column, ascending=(order_asin == 'asc'))
-
-        # Ordenar por Search Volume si se solicita
-        if order_search_volume:
-            search_volume_column = sorted(search_volume_columns)[-1]
-            filtered_df = filtered_df.sort_values(by=search_volume_column, ascending=(order_search_volume == 'asc'))
-
-        return filtered_df.to_dict(orient='records')
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Error al filtrar las columnas: {e}")
 
 @app.get("/campaign_data/")
 async def get_campaign_data(keyword_phrase: str):

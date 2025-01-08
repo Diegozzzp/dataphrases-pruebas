@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import FileUpload from './components/FileUpload';
 import DataTable from './components/DataTable';
-import CampaignTable from './components/CampaignTable';
+import ASINList from './components/ASINList';
+import ASINDetail from './components/ASINDetail';
 import { Container, Typography, Snackbar } from '@mui/material';
 
 function App() {
@@ -10,8 +12,6 @@ function App() {
   const [asinColumns, setAsinColumns] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [currentAsin, setCurrentAsin] = useState("");
-  const [campaigns, setCampaigns] = useState([]);
-  const [selectedKeyword, setSelectedKeyword] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -50,73 +50,42 @@ function App() {
     }
   };
 
-  const fetchCampaigns = async (keyword) => {
-    try {
-      const response = await axios.get('http://localhost:8000/campaigns/', {
-        params: { keyword_phrase: keyword }
-      });
-      setCampaigns(response.data);
-      setSelectedKeyword(keyword);
-    } catch (error) {
-      setError("Error al obtener las campañas");
-      console.error("Error al obtener las campañas:", error);
-    }
-  };
-
-  const toggleFavorite = async (asin) => {
-    try {
-      const response = await axios.post('http://localhost:8000/favoritos/', { asin });
-      setFavorites(response.data.favoritos);
-    } catch (error) {
-      setError("Error al gestionar favoritos");
-      console.error("Error al gestionar favoritos:", error);
-    }
-  };
-
-  const handleAsinChange = async (asin) => {
-    try {
-      const formData = new FormData();
-      formData.append("asin", asin);
-
-      await axios.post('http://localhost:8000/set_asin/', formData);
-      setCurrentAsin(asin);
-    } catch (error) {
-      setError("Error al establecer el ASIN");
-      console.error("Error al establecer el ASIN:", error);
-    }
-  };
-
   const handleCloseSnackbar = () => setError("");
 
   return (
-    <Container>
-      <Typography variant="h3" gutterBottom>
-        Generador de Reportes SEO y Publicidad
-      </Typography>
-      <FileUpload onFileUpload={(file) => handleFileUpload(file, "data")} label="Subir archivo de datos" />
-      <FileUpload onFileUpload={(file) => handleFileUpload(file, "campaigns")} label="Subir archivo de campañas" />
-      <DataTable
-        data={data}
-        asinColumns={asinColumns}
-        favorites={favorites}
-        onToggleFavorite={toggleFavorite}
-        onAsinChange={handleAsinChange}
-        onFetchData={fetchData}
-        onKeywordClick={fetchCampaigns} // Añadir onKeywordClick para manejar clics en palabras clave
-      />
-      {selectedKeyword && (
-        <CampaignTable
-          campaigns={campaigns}
-          keyword={selectedKeyword}
+    <Router>
+      <Container>
+        <Typography variant="h3" gutterBottom>
+          Generador de Reportes SEO y Publicidad
+        </Typography>
+        <FileUpload onFileUpload={(file) => handleFileUpload(file, "data")} label="Subir archivo de datos" />
+        <FileUpload onFileUpload={(file) => handleFileUpload(file, "campaigns")} label="Subir archivo de campañas" />
+        
+        <Routes>
+          <Route path="/asin/:asin" element={<ASINDetail />} />
+          <Route path="/" element={
+            <>
+              <ASINList asinColumns={asinColumns} />
+              <DataTable
+                data={data}
+                asinColumns={asinColumns}
+                favorites={favorites}
+                onToggleFavorite={setFavorites}
+                onAsinChange={setCurrentAsin}
+                onFetchData={fetchData}
+              />
+            </>
+          } />
+        </Routes>
+
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          message={error}
         />
-      )}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={error}
-      />
-    </Container>
+      </Container>
+    </Router>
   );
 }
 

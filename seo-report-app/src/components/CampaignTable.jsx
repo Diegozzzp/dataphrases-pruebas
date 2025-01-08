@@ -1,6 +1,5 @@
 import React from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography } from '@mui/material';
-import './CampaignTable.css';
 
 const CampaignTable = ({ campaigns, keyword }) => {
   return (

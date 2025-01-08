@@ -1,0 +1,11 @@
+.asin-list-container {
+    padding: 20px;
+  }
+  
+  .asin-list-container .MuiCard-root {
+    transition: transform 0.2s;
+  }
+  
+  .asin-list-container .MuiCard-root:hover {
+    transform: scale(1.05);
+  }
