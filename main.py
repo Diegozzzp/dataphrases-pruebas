@@ -24,7 +24,8 @@ global_data = {
     "df": None,
     "asin_columns": [],
     "favoritos": set(),
-    "current_asin_column": None
+    "current_asin_column": None,
+    "campaigns_df": None  # Agregar un DataFrame para campañas publicitarias
 }
 
 def process_dataframe(contents: bytes):
@@ -56,46 +57,65 @@ def process_dataframe(contents: bytes):
     return df, fecha_carga, columnas_asin
 
 @app.post("/upload/")
-async def upload_file(file: UploadFile):
+async def upload_file(file: UploadFile, file_type: str = Form(...)):
     try:
         contents = await file.read()
         df, fecha_carga, columnas_asin = await asyncio.to_thread(process_dataframe, contents)
 
-        # Actualizar el DataFrame principal
-        if global_data['df'] is None:
-            global_data['df'] = df
+        if file_type == "data":
+            # Actualizar el DataFrame principal
+            if global_data['df'] is None:
+                global_data['df'] = df
+            else:
+                columnas_merge = ['Keyword Phrase']
+                columnas_merge.extend(['Competing Products', 'Keyword Sales'])
+                columnas_merge.extend([f"Search Volume ({fecha_carga})"])
+                columnas_merge.extend([f"{col} ({fecha_carga})" for col in columnas_asin])
+                global_data['df'] = pd.merge(
+                    global_data['df'],
+                    df[columnas_merge],
+                    on='Keyword Phrase',
+                    how='outer'
+                ).fillna(0)
+
+            # Eliminar columnas duplicadas
+            global_data['df'] = global_data['df'].loc[:, ~global_data['df'].columns.duplicated()]
+
+            # Actualizar columnas ASIN únicas
+            asins_unicos = set()
+            for col in global_data['df'].columns:
+                if '(' in col and len(col.split(' (')[0]) == 10 and col.split(' (')[0].isalnum():
+                    asins_unicos.add(col.split(' (')[0])
+            global_data['asin_columns'] = sorted(list(asins_unicos))
+
+            return {"message": "Archivo de datos cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
+        elif file_type == "campaigns":
+            global_data['campaigns_df'] = df
+            return {"message": "Archivo de campañas cargado y procesado exitosamente."}
         else:
-            columnas_merge = ['Keyword Phrase']
-            columnas_merge.extend(['Competing Products', 'Keyword Sales'])
-            columnas_merge.extend([f"Search Volume ({fecha_carga})"])
-            columnas_merge.extend([f"{col} ({fecha_carga})" for col in columnas_asin])
-            global_data['df'] = pd.merge(
-                global_data['df'],
-                df[columnas_merge],
-                on='Keyword Phrase',
-                how='outer'
-            ).fillna(0)
-
-        # Eliminar columnas duplicadas
-        global_data['df'] = global_data['df'].loc[:, ~global_data['df'].columns.duplicated()]
-
-        # Actualizar columnas ASIN únicas
-        asins_unicos = set()
-        for col in global_data['df'].columns:
-            if '(' in col and len(col.split(' (')[0]) == 10 and col.split(' (')[0].isalnum():
-                asins_unicos.add(col.split(' (')[0])
-        global_data['asin_columns'] = sorted(list(asins_unicos))
-
-        return {"message": "Archivo cargado y procesado exitosamente.", "asin_columns": global_data['asin_columns']}
+            raise HTTPException(status_code=400, detail="Tipo de archivo no válido.")
     except Exception as e:
+        # Registrar el error para diagnóstico
+        print(f"Error al cargar el archivo: {e}")
         raise HTTPException(status_code=500, detail=f"Error al cargar el archivo: {e}")
 
+@app.get("/campaigns/")
+async def get_campaigns(keyword_phrase: str):
+    if global_data['campaigns_df'] is None:
+        raise HTTPException(status_code=404, detail="No hay datos de campañas cargados.")
+
+    try:
+        campaigns_filtered = global_data['campaigns_df'][global_data['campaigns_df']['Customer Search Term'].str.lower() == keyword_phrase.lower()]
+        return campaigns_filtered.to_dict(orient='records')
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Error al filtrar las campañas: {e}")
+    
 @app.get("/data/")
 async def get_data(
     min_value: int = Query(1, alias="minValue"),
     max_value: int = Query(1000, alias="maxValue"),
-    order_asin: bool = Query(False, alias="orderAsin"),
-    order_search_volume: bool = Query(False, alias="orderSearchVolume")
+    order_asin: str = Query("", alias="orderAsin"),
+    order_search_volume: str = Query("", alias="orderSearchVolume")
 ):
     if global_data['df'] is None:
         raise HTTPException(status_code=404, detail="No hay datos cargados.")
@@ -124,18 +144,30 @@ async def get_data(
             filtered_df = filtered_df[(filtered_df[asin_column] >= min_value) & (filtered_df[asin_column] <= max_value)]
 
         # Ordenar por la columna ASIN si se solicita
-        if order_asin and global_data['current_asin_column']:
+        if order_asin:
             asin_column = f"{global_data['current_asin_column']} ({datetime.now().strftime('%Y-%m-%d')})"
-            filtered_df = filtered_df.sort_values(by=asin_column, ascending=False)
+            filtered_df = filtered_df.sort_values(by=asin_column, ascending=(order_asin == 'asc'))
 
         # Ordenar por Search Volume si se solicita
-        if order_search_volume and search_volume_columns:
+        if order_search_volume:
             search_volume_column = sorted(search_volume_columns)[-1]
-            filtered_df = filtered_df.sort_values(by=search_volume_column, ascending=False)
+            filtered_df = filtered_df.sort_values(by=search_volume_column, ascending=(order_search_volume == 'asc'))
 
         return filtered_df.to_dict(orient='records')
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Error al filtrar las columnas: {e}")
+
+@app.get("/campaign_data/")
+async def get_campaign_data(keyword_phrase: str):
+    if global_data['campaign_df'] is None:
+        raise HTTPException(status_code=404, detail="No hay datos de campañas cargados.")
+    
+    try:
+        df = global_data['campaign_df']
+        filtered_df = df[df['Keyword Phrase'].str.lower() == keyword_phrase.lower()]
+        return filtered_df.to_dict(orient='records')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener los datos de campañas: {e}")
 
 @app.post("/favoritos/")
 async def manage_favoritos(asin: str):
