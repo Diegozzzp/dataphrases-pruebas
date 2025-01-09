@@ -93,7 +93,7 @@ const ASINDetail = () => {
                   {row['Keyword Phrase']}
                 </Button>
               </TableCell>
-              <TableCell>{row['Search Volume (2025-01-08)']}</TableCell>
+              <TableCell>{row['Search Volume']}</TableCell>
               <TableCell>{row['Keyword Sales']}</TableCell>
               <TableCell>{row['CPR']}</TableCell>
               {asinColumns.map(col => (

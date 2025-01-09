@@ -2,7 +2,6 @@ from fastapi import FastAPI, UploadFile, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from io import BytesIO
-from datetime import datetime
 import warnings
 import asyncio
 
@@ -35,29 +34,24 @@ def process_dataframe(contents: bytes):
     # Normalizar las frases clave
     df['Keyword Phrase'] = df['Keyword Phrase'].str.strip().str.lower()
 
-    # Obtener fecha actual para el histórico
-    fecha_carga = datetime.now().strftime('%Y-%m-%d')
-
     # Convertir columnas sin histórico
     columnas_sin_historico = ['Competing Products', 'Keyword Sales', 'CPR']
     for columna in columnas_sin_historico:
         if columna in df.columns:
             df[columna] = pd.to_numeric(df[columna], errors='coerce').fillna(0).astype(int)
 
-    # Procesar Search Volume con histórico
+    # Procesar Search Volume sin histórico
     if 'Search Volume' in df.columns:
-        df[f"Search Volume ({fecha_carga})"] = pd.to_numeric(df['Search Volume'], errors='coerce').fillna(0).astype(int)
-        df.drop(columns=['Search Volume'], inplace=True)
+        df['Search Volume'] = pd.to_numeric(df['Search Volume'], errors='coerce').fillna(0).astype(int)
 
     # Detectar y procesar columnas ASIN
     columnas_asin = [col for col in df.columns if len(col) == 10 and col.isalnum()]
     for asin_col in columnas_asin:
-        df[f"{asin_col} ({fecha_carga})"] = pd.to_numeric(df[asin_col], errors='coerce').fillna(0).astype(int)
-        df.drop(columns=[asin_col], inplace=True)
+        df[asin_col] = pd.to_numeric(df[asin_col], errors='coerce').fillna(0).astype(int)
 
     print("DataFrame procesado:", df.head())  # Debug: Mostrar el DataFrame procesado
     print("Columnas ASIN detectadas:", columnas_asin)  # Debug: Mostrar las columnas ASIN detectadas
-    return df, fecha_carga, columnas_asin
+    return df, columnas_asin
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile, file_type: str = Form(...)):
@@ -66,7 +60,7 @@ async def upload_file(file: UploadFile, file_type: str = Form(...)):
         print("Tipo de archivo:", file_type)  # Debug: Mostrar el tipo de archivo
 
         if file_type == "data":
-            df, fecha_carga, columnas_asin = await asyncio.to_thread(process_dataframe, contents)
+            df, columnas_asin = await asyncio.to_thread(process_dataframe, contents)
             print("DataFrame actualizado:", df.head())  # Debug: Mostrar el DataFrame actualizado
             print("Columnas ASIN:", columnas_asin)  # Debug: Mostrar las columnas ASIN
 
@@ -74,10 +68,8 @@ async def upload_file(file: UploadFile, file_type: str = Form(...)):
             if global_data['df'] is None:
                 global_data['df'] = df
             else:
-                columnas_merge = ['Keyword Phrase']
-                columnas_merge.extend(['CPR', 'Keyword Sales'])
-                columnas_merge.extend([f"Search Volume ({fecha_carga})"])
-                columnas_merge.extend([f"{col} ({fecha_carga})" for col in columnas_asin])
+                columnas_merge = ['Keyword Phrase', 'CPR', 'Keyword Sales', 'Search Volume']
+                columnas_merge.extend(columnas_asin)
                 global_data['df'] = pd.merge(
                     global_data['df'],
                     df[columnas_merge],
@@ -91,8 +83,8 @@ async def upload_file(file: UploadFile, file_type: str = Form(...)):
             # Actualizar columnas ASIN únicas
             asins_unicos = set()
             for col in global_data['df'].columns:
-                if '(' in col and len(col.split(' (')[0]) == 10 and col.split(' (')[0].isalnum():
-                    asins_unicos.add(col.split(' (')[0])
+                if len(col) == 10 and col.isalnum():
+                    asins_unicos.add(col)
             global_data['asin_columns'] = sorted(list(asins_unicos))
 
             print("Columnas ASIN únicas:", global_data['asin_columns'])  # Debug: Mostrar las columnas ASIN únicas
@@ -120,16 +112,10 @@ async def get_data(asin: str = None, minValue: int = None, maxValue: int = None,
         print("Columnas del DataFrame:", df.columns)  # Debug: Mostrar las columnas del DataFrame
 
         if asin:
-            asin_column = [col for col in df.columns if col.startswith(asin)]
+            asin_column = [col for col in df.columns if col == asin]
             if asin_column:
                 asin_column = asin_column[0]
-                volume_columns = [col for col in df.columns if 'Search Volume' in col]
-                if volume_columns:
-                    search_volume_column = volume_columns[0]
-                else:
-                    search_volume_column = 'Search Volume'
-                
-                df = df[['Keyword Phrase', search_volume_column, asin_column, 'Competing Products', 'Keyword Sales', 'CPR']]
+                df = df[['Keyword Phrase', 'Search Volume', asin_column, 'Competing Products', 'Keyword Sales', 'CPR']]
                 print("Columnas filtradas:", df.columns)  # Debug: Mostrar las columnas filtradas
 
                 # Filtrar filas donde la columna del ASIN no tenga datos relevantes
@@ -142,9 +128,7 @@ async def get_data(asin: str = None, minValue: int = None, maxValue: int = None,
             df = df.sort_values(by=[orderAsin], ascending=(orderAsin == 'asc'))
 
         if orderSearchVolume:
-            volume_columns = [col for col in df.columns if 'Search Volume' in col]
-            if volume_columns:
-                df = df.sort_values(by=volume_columns, ascending=(orderSearchVolume == 'asc'))
+            df = df.sort_values(by=['Search Volume'], ascending=(orderSearchVolume == 'asc'))
 
         print("Datos finales:", df.head())  # Debug: Mostrar los datos finales antes de devolverlos
         return df.fillna('').to_dict(orient='records')
@@ -172,14 +156,13 @@ async def get_campaigns(keyword_phrase: str):
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Error al filtrar las campañas: {e}")
 
-
 @app.get("/campaign_data/")
 async def get_campaign_data(keyword_phrase: str):
-    if global_data['campaign_df'] is None:
+    if global_data['campaigns_df'] is None:
         raise HTTPException(status_code=404, detail="No hay datos de campañas cargados.")
     
     try:
-        df = global_data['campaign_df']
+        df = global_data['campaigns_df']
         filtered_df = df[df['Keyword Phrase'].str.lower() == keyword_phrase.lower()]
         return filtered_df.to_dict(orient='records')
     except Exception as e:
