@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Typography, Grid, Button } from '@mui/material';
+import { Card, CardBody, CardTitle, Button, Row, Col } from 'reactstrap';
 import './ASINList.css';  // Asegúrate de agregar estilos aquí
 
 const ASINList = ({ asinColumns }) => {
@@ -13,22 +13,20 @@ const ASINList = ({ asinColumns }) => {
 
   return (
     <div className="asin-list-container">
-      <Grid container spacing={3}>
+      <Row>
         {asinColumns.map((asin, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+          <Col xs={12} sm={6} md={4} lg={3} key={index} className="mb-4">
             <Card>
-              <CardContent>
-                <Typography variant="h5" component="div">
-                  {asin}
-                </Typography>
-                <Button variant="contained" color="primary" onClick={() => handleASINClick(asin)}>
+              <CardBody>
+                <CardTitle tag="h5">{asin}</CardTitle>
+                <Button color="primary" onClick={() => handleASINClick(asin)}>
                   Ver Detalles
                 </Button>
-              </CardContent>
+              </CardBody>
             </Card>
-          </Grid>
+          </Col>
         ))}
-      </Grid>
+      </Row>
     </div>
   );
 };
@@ -37,4 +35,4 @@ ASINList.propTypes = {
   asinColumns: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
-export default ASINList;
+export default React.memo(ASINList);

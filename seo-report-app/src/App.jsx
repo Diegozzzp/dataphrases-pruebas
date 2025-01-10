@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import FileUpload from './components/FileUpload';
 import ASINList from './components/ASINList';
 import ASINDetail from './components/ASINDetail';
-import { Container, Typography, Snackbar } from '@mui/material';
+import { Container, Alert } from 'reactstrap';
 
 function App() {
   const [asinColumns, setAsinColumns] = useState([]);
@@ -26,28 +26,25 @@ function App() {
     }
   };
 
-  const handleCloseSnackbar = () => setError("");
+  const handleCloseAlert = () => setError("");
 
   return (
     <Router>
       <Container>
-        <Typography variant="h3" gutterBottom>
-          Generador de Reportes SEO y Publicidad
-        </Typography>
+        <h3 className="my-4">Generador de Reportes SEO y Publicidad</h3>
         <FileUpload onFileUpload={(file) => handleFileUpload(file, "data")} label="Subir archivo de datos" />
         <FileUpload onFileUpload={(file) => handleFileUpload(file, "campaigns")} label="Subir archivo de campañas" />
-        
+
         <Routes>
           <Route path="/asin/:asin" element={<ASINDetail />} />
           <Route path="/" element={<ASINList asinColumns={asinColumns} />} />
         </Routes>
 
-        <Snackbar
-          open={!!error}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          message={error}
-        />
+        {error && (
+          <Alert color="danger" isOpen={!!error} toggle={handleCloseAlert}>
+            {error}
+          </Alert>
+        )}
       </Container>
     </Router>
   );

@@ -31,4 +31,4 @@ const CampaignTable = ({ campaigns, keyword }) => {
   );
 };
 
-export default CampaignTable;
+export default React.memo(CampaignTable);

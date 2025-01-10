@@ -13,7 +13,13 @@ const FileUpload = ({ onFileUpload, label }) => {
   return (
     <div>
       <label htmlFor="file-upload">{label}</label>
-      <input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} />
+      <input
+        id="file-upload"
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        style={{ display: 'block', margin: '10px 0' }}
+      />
     </div>
   );
 };

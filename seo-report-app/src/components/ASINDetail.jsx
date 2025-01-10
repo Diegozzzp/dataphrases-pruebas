@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  CardBody,
+  Button,
+  Table,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Alert
+} from 'reactstrap';
 
 const ASINDetail = () => {
   const { asin } = useParams();
@@ -19,9 +32,8 @@ const ASINDetail = () => {
         const response = await axios.get('http://localhost:8000/data/', {
           params: { asin }
         });
-        console.log("Datos recibidos:", response.data);  // Debug: Mostrar los datos recibidos
+        console.log("Datos recibidos:", response.data);
 
-        // Extraer las columnas de ASIN dinámicamente
         if (response.data.length > 0) {
           const firstRow = response.data[0];
           const asinCols = Object.keys(firstRow).filter(key => key.includes('B0'));
@@ -44,7 +56,7 @@ const ASINDetail = () => {
       const response = await axios.get('http://localhost:8000/campaigns/', {
         params: { keyword_phrase: keyword }
       });
-      // Filtrar las columnas no deseadas
+
       const filteredCampaigns = response.data.map(campaign => {
         const filtered = {};
         Object.keys(campaign).forEach(key => {
@@ -66,85 +78,102 @@ const ASINDetail = () => {
     setOpen(false);
   };
 
-  const handleCloseSnackbar = () => setError("");
+  const handleCloseAlert = () => setError("");
 
   return (
-    <Container>
-      <Typography variant="h4" gutterBottom>
-        Detalles del ASIN: {asin}
-      </Typography>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Keyword Phrase</TableCell>
-            <TableCell>Search Volume</TableCell>
-            <TableCell>Keyword Sales</TableCell>
-            <TableCell>CPR</TableCell>
-            {asinColumns.map(col => (
-              <TableCell key={col}>{col}</TableCell>  // Mostrar todas las columnas de ASIN
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {data.map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>
-                <Button onClick={() => handleClickOpen(row['Keyword Phrase'])}>
-                  {row['Keyword Phrase']}
-                </Button>
-              </TableCell>
-              <TableCell>{row['Search Volume']}</TableCell>
-              <TableCell>{row['Keyword Sales']}</TableCell>
-              <TableCell>{row['CPR']}</TableCell>
-              {asinColumns.map(col => (
-                <TableCell key={col}>{row[col]}</TableCell>  // Mostrar los datos específicos del ASIN
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <Container fluid>
+      <div className="page-title-box">
+        <Row className="align-items-center">
+          <Col md={8}>
+            <h6 className="page-title">ASIN Detail</h6>
+            <ol className="breadcrumb m-0">
+              <li className="breadcrumb-item"><Link to="/dashboard">Dashboard</Link></li>
+              <li className="breadcrumb-item active">Detalles del ASIN: {asin}</li>
+            </ol>
+          </Col>
+        </Row>
+      </div>
 
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Campañas para: {selectedKeyword}</DialogTitle>
-        <DialogContent>
-          {campaigns.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {Object.keys(campaigns[0]).map((col) => (
-                    <TableCell key={col}>{col}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {campaigns.map((campaign, index) => (
-                  <TableRow key={index}>
-                    {Object.keys(campaign).map((col) => (
-                      <TableCell key={col}>{campaign[col]}</TableCell>
+      <Row>
+        <Col xl={12}>
+          <Card>
+            <CardBody>
+              <h4 className="card-title mb-4">Detalles del ASIN: {asin}</h4>
+              <div className="table-responsive">
+                <Table className="table-hover table-centered table-nowrap mb-0">
+                  <thead>
+                    <tr>
+                      <th>Keyword Phrase</th>
+                      <th>Search Volume</th>
+                      <th>Keyword Sales</th>
+                      <th>CPR</th>
+                      {asinColumns.map(col => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((row, index) => (
+                      <tr key={index}>
+                        <td>
+                          <Button color="link" onClick={() => handleClickOpen(row['Keyword Phrase'])}>
+                            {row['Keyword Phrase']}
+                          </Button>
+                        </td>
+                        <td>{row['Search Volume']}</td>
+                        <td>{row['Keyword Sales']}</td>
+                        <td>{row['CPR']}</td>
+                        {asinColumns.map(col => (
+                          <td key={col}>{row[col]}</td>
+                        ))}
+                      </tr>
                     ))}
-                  </TableRow>
+                  </tbody>
+                </Table>
+              </div>
+            </CardBody>
+          </Card>
+        </Col>
+      </Row>
+
+      <Modal isOpen={open} toggle={handleClose}>
+        <ModalHeader toggle={handleClose}>Campañas para: {selectedKeyword}</ModalHeader>
+        <ModalBody>
+          {campaigns.length > 0 ? (
+            <Table className="table-hover table-centered table-nowrap mb-0">
+              <thead>
+                <tr>
+                  {Object.keys(campaigns[0]).map((col) => (
+                    <th key={col}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.map((campaign, index) => (
+                  <tr key={index}>
+                    {Object.keys(campaign).map((col) => (
+                      <td key={col}>{campaign[col]}</td>
+                    ))}
+                  </tr>
                 ))}
-              </TableBody>
+              </tbody>
             </Table>
           ) : (
-            <Typography>No hay campañas disponibles para esta frase clave.</Typography>
+            <p>No hay campañas disponibles para esta frase clave.</p>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} color="primary">
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="primary" onClick={handleClose}>Cerrar</Button>
+        </ModalFooter>
+      </Modal>
 
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={error}
-      />
+      {error && (
+        <Alert color="danger" isOpen={!!error} toggle={handleCloseAlert}>
+          {error}
+        </Alert>
+      )}
     </Container>
   );
 };
 
-export default ASINDetail;
+export default React.memo(ASINDetail);

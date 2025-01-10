@@ -9,19 +9,16 @@ const DataTable = ({ data, asinColumns, favorites, onToggleFavorite, onAsinChang
   const [orderAsin, setOrderAsin] = useState('');
   const [orderSearchVolume, setOrderSearchVolume] = useState('');
 
-  // Maneja la selección del ASIN
   const handleAsinSelect = (event) => {
     const selectedAsin = event.target.value;
     setSelectedAsin(selectedAsin);
     onAsinChange(selectedAsin);
   };
 
-  // Aplica los filtros seleccionados
   const handleFetchData = () => {
     onFetchData({ minValue, maxValue, orderAsin, orderSearchVolume });
   };
 
-  // Maneja el clic en las palabras clave
   const handleKeywordClick = (keyword) => {
     if (keyword) {
       onKeywordClick(keyword);
@@ -87,7 +84,7 @@ const DataTable = ({ data, asinColumns, favorites, onToggleFavorite, onAsinChang
                   <TableCell
                     key={idx}
                     onClick={() => key === 'Keyword Phrase' && handleKeywordClick(value)}
-                    style={{ cursor: key === 'Keyword Phrase' ? 'pointer' : 'default' }} // Cambia el cursor si es una palabra clave
+                    style={{ cursor: key === 'Keyword Phrase' ? 'pointer' : 'default' }}
                   >
                     {value}
                   </TableCell>
